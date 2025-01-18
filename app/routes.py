@@ -347,13 +347,13 @@ def register_routes(app):
         order_fields = ",".join(
             [
                 "DocDate",
+                "CreationDate",
                 "DocNum",
                 "DocEntry",
                 "CardCode",
                 "DocTotal",
-                "U_voucher_id",
-                "U_total_voucher",
                 "U_total_cash",
+                "U_total_debit",
                 "U_receipt_id",
             ]
         )
@@ -362,15 +362,24 @@ def register_routes(app):
         bis_orders = fetch_data_in_batches(
             entity,
             batch_size,
-            order_fields,
-            {"startDate": current_date, "endDate": current_date},
+            f"{order_fields},U_num_at_card,U_total_bis",
+            {
+                "startDate": current_date,
+                "endDate": current_date,
+                "paymentMethods": "bis",
+            },
         )
 
+        # Fetch orders (Voucher data)
         voucher_orders = fetch_data_in_batches(
             entity,
             batch_size,
-            order_fields,
-            {"startDate": current_date, "endDate": current_date},
+            f"{order_fields},U_voucher_id,U_total_voucher",
+            {
+                "startDate": current_date,
+                "endDate": current_date,
+                "paymentMethods": "voucher",
+            },
         )
 
         # Generate Excel files for bis data and vouchers data
