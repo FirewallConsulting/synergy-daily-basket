@@ -408,6 +408,13 @@ def register_routes(app):
             "filename": voucher_orders_excel_filename,
         }
 
+        # Fetch email recipients for the CC field
+        recipients = db.session.execute(
+            db.select(EmailRecipient.email).filter_by(active=True)
+        ).all()
+
+        cc_recipients = [row[0] for row in recipients]
+
         # Email Body (HTML and Plain Text)
         total_orders = len(bis_orders)
         total_vouchers = len(voucher_orders)
@@ -434,8 +441,8 @@ def register_routes(app):
 
         params: resend.Emails.SendParams = {
             "from": "SynergyDailyBasket <synergy-daily-basket@thekeyinitiative.sr>",
-            "to": ["thekey.fintech.digital@gmail.com"],
-            "cc": ["kenny@thekeyinitiative.sr"],
+            "to": ["kenny@thekeyinitiative.sr"],
+            "cc": cc_recipients,
             "subject": f"{entity.title()} and Voucher Reports - {current_date}",
             "html": html_body,
             "text": plain_text_body,
