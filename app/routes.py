@@ -443,7 +443,7 @@ def register_routes(app):
             "from": "SynergyDailyBasket <synergy-daily-basket@thekeyinitiative.sr>",
             "to": ["kenny@thekeyinitiative.sr"],
             "cc": cc_recipients,
-            "subject": f"{entity.title()} and Voucher Reports - {current_date}",
+            "subject": f"BIS and Voucher Reports - {current_date}",
             "html": html_body,
             "text": plain_text_body,
             "attachments": [orders_attachment, vouchers_attachment],
