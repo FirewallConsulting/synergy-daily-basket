@@ -150,7 +150,7 @@ def register_routes(app):
     @app.route("/orders-daily-voucher-sales", methods=["GET"])
     def get_orders_daily_voucher_sales():
         current_date = datetime.now().strftime("%Y-%m-%d")
-        batch_size = 100
+        batch_size = 50
         fields = ",".join(
             [
                 "DocDate",
@@ -176,7 +176,7 @@ def register_routes(app):
     @app.route("/invoices-daily-voucher-sales", methods=["GET"])
     def get_invoices_daily_voucher_sales():
         current_date = datetime.now().strftime("%Y-%m-%d")
-        batch_size = 2
+        batch_size = 50
         fields = ",".join(
             [
                 "DocDate",
@@ -202,7 +202,7 @@ def register_routes(app):
     @app.route("/orders-daily-bis-sales", methods=["GET"])
     def get_orders_daily_bis_sales():
         current_date = datetime.now().strftime("%Y-%m-%d")
-        batch_size = 100
+        batch_size = 50
         fields = ",".join(
             [
                 "DocDate",
@@ -228,7 +228,7 @@ def register_routes(app):
     @app.route("/invoices-daily-bis-sales", methods=["GET"])
     def get_invoices_daily_bis_sales():
         current_date = datetime.now().strftime("%Y-%m-%d")
-        batch_size = 1
+        batch_size = 50
         fields = ",".join(
             [
                 "DocDate",
@@ -341,7 +341,7 @@ def register_routes(app):
     @app.route("/send-email", methods=["POST"])
     def send_email():
         current_date = datetime.now().strftime("%Y-%m-%d")
-        batch_size = 100
+        batch_size = 50
         entity = "orders"
 
         order_fields = ",".join(
