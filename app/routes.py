@@ -347,6 +347,7 @@ def register_routes(app):
         order_fields = ",".join(
             [
                 "DocDate",
+                "DocTime",
                 "CreationDate",
                 "DocNum",
                 "DocEntry",
