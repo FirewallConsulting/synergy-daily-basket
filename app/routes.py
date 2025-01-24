@@ -10,6 +10,7 @@ from io import BytesIO
 import resend
 import os
 from app import db
+from celery import current_app as celery_app
 
 resend.api_key = Config.RESEND_API_KEY
 
@@ -458,6 +459,25 @@ def register_routes(app):
         os.remove(voucher_orders_excel_path)
 
         return jsonify(r)
+
+    # @celery_app.task(
+    #     bind=True, max_retries=6, default_retry_delay=600
+    # )  # Retry every 10 minutes
+    # def send_email_task(self):
+    #     with app.app_context():
+    #         try:
+    #             response = requests.post("http://localhost:5000/send-email")
+    #             response.raise_for_status()
+    #         except requests.exceptions.RequestException as exc:
+    #             # Retry if the time is before 10 PM
+    #             current_time = datetime.now()
+    #             retry_deadline = current_time.replace(
+    #                 hour=22, minute=0, second=0, microsecond=0
+    #             )
+    #             if current_time < retry_deadline:
+    #                 raise self.retry(exc=exc)
+    #             else:
+    #                 raise exc
 
     @app.route("/", methods=["GET"])
     def index():

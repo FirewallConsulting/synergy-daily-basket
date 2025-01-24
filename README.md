@@ -19,22 +19,37 @@ This Flask application is designed to fetch daily sales data from the Foodbasket
 - **Resend**: API for sending emails.
 - **SQLAlchemy**: ORM for database operations.
 - **Requests**: HTTP library for making API calls.
-- **Docker**: (Planned) for containerizing the application.
+- **Docker**: For containerizing the application.
 
 ## Project Structure
 
 ```
-project-root/
-|-- app/
-|   |-- __init__.py
-|   |-- models.py
-|   |-- routes.py
-|-- config/
-|   |-- __init__.py
-|   |-- config.py
-|-- requirements.txt
-|-- README.md
-|-- run.py
+├── app
+|  ├── models.py
+|  ├── routes.py
+|  ├── tasks.py
+|  ├── __init__.py
+|  └── __pycache__
+├── cert.pem
+├── config.py
+├── docker-compose.yml
+├── Dockerfile
+├── instance
+|  └── db.sqlite3
+├── key.pem
+├── migrations
+|  ├── alembic.ini
+|  ├── env.py
+|  ├── README
+|  ├── script.py.mako
+|  ├── versions
+|  └── __pycache__
+├── README.md
+├── requirements.txt
+├── run.py
+├── synergy-daily-basket.tar
+└── __pycache__
+   └── config.cpython-311.pyc
 ```
 
 ### Key Files
@@ -55,8 +70,9 @@ project-root/
 2. Create and activate a virtual environment:
 
    ```bash
-   python -m venv venv
-   source venv/bin/activate # On Windows: venv\Scripts\activate
+   python -m venv .venv
+   source .venv/bin/activate
+   # On Windows: .venv\Scripts\activate
    ```
 
 3. Install dependencies:
@@ -65,15 +81,7 @@ project-root/
    pip install -r requirements.txt
    ```
 
-4. Set up environment variables: Create a `.env` file in the root directory and add the following variables:
-
-   ```
-   FLASK_APP=run.py
-   FLASK_ENV=development
-   RESEND_API_KEY=<your_resend_api_key>
-   DATABASE_URL=<your_database_url>
-   FOODBASKET_API_URL=<foodbasket_api_url>
-   ```
+4. Set up environment variables: Create a `.env` file in the root directory and add the variables specified in _.env.example_
 
 5. Initialize the database:
 
@@ -145,9 +153,9 @@ project-root/
 
 ## Planned Enhancements
 
-1. **Dockerization**:
+1. **Implement Celery**:
 
-   - Containerize the application for easy deployment.
+   - Implement celery with redis as broker into this project. The tasks.py file is already included. That's where the tasks will be defined. There is already a docker compose yml file to run the flask app along with the redis broker and celery worker. There is also going to be task defined inside of tasks.py that will run every day at 1AM.
 
 ## Contribution Guidelines
 
