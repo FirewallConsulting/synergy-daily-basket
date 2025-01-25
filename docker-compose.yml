@@ -2,26 +2,49 @@ version: "3.8"
 
 services:
   api:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    build: .
+    volumes:
+      - .:/app
     depends_on:
       - redis
+    environment:
+      - FLASK_APP=run.py
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
     ports:
-      - 7000:7000
-    restart: always
+      - "7000:7000"
+    user: celeryuser
+    command: flask run --host=0.0.0.0 --port=7000
 
-  celery:
+  celery_worker:
     build:
       context: .
       dockerfile: Dockerfile
+    volumes:
+      - .:/docker-sdb
     depends_on:
       - redis
-    restart: always
-    command: celery -A celery worker --loglevel=INFO
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    user: celeryuser
+    command: celery -A app.make_celery worker --loglevel=info
+
+  celery_beat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - .:/docker-sdb
+    depends_on:
+      - redis
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    user: celeryuser
+    command: celery -A app.make_celery beat --loglevel=info
 
   redis:
-    image: redis
+    image: redis:alpine
     ports:
-      - 6379:6379
-    restart: always
+      - "6379:6379"
