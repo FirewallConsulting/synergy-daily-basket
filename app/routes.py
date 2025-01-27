@@ -435,7 +435,7 @@ def register_routes(app):
             total_vouchers = 0 if orders_fetch_failed else len(voucher_orders)
 
             html_body = f"""
-            <p>Goodnight,</p>
+            <p>Goodmorning,</p>
             <p>Please find the attached reports for today.</p>
             <p><strong>Summary:</strong></p>
             <ul>
@@ -447,7 +447,7 @@ def register_routes(app):
             """
 
             plain_text_body = (
-                "Goodnight,\n\n"
+                "Goodmorning,\n\n"
                 "Please find the attached reports for today.\n\n"
                 "Summary:\n"
                 f"- BIS Data Records: {total_orders}\n"
