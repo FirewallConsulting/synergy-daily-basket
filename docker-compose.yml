@@ -7,10 +7,7 @@ services:
       - .:/app
     depends_on:
       - redis
-    environment:
-      - FLASK_APP=run.py
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    env_file: .env
     ports:
       - "7000:7000"
     user: celeryuser
@@ -24,9 +21,7 @@ services:
       - .:/docker-sdb
     depends_on:
       - redis
-    environment:
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    env_file: .env
     user: celeryuser
     command: celery -A app.make_celery worker --loglevel=info
 
@@ -38,9 +33,7 @@ services:
       - .:/docker-sdb
     depends_on:
       - redis
-    environment:
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    env_file: .env
     user: celeryuser
     command: celery -A app.make_celery beat --loglevel=info
 

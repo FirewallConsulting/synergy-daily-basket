@@ -8,6 +8,8 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     FOODBASKET_API_URL = os.environ.get("FOODBASKET_API_URL")
     RESEND_API_KEY = os.environ.get("RESEND_API_KEY")
+    FROM_EMAIL = os.environ.get("FROM_EMAIL")
+    TO_EMAIL = os.environ.get("TO_EMAIL")
     FLASK_RUN_PORT = os.environ.get("FLASK_RUN_PORT", 7000)
 
     # Celery configuration

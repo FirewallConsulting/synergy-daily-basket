@@ -21,19 +21,17 @@ def create_app(config_class=Config):
 
     app.config.from_mapping(
         CELERY=dict(
-            broker_url="redis://redis",
-            result_backend="redis://redis",
+            broker_url=Config.CELERY_BROKER_URL,
+            result_backend=Config.CELERY_RESULT_BACKEND,
             task_ignore_result=True,
             beat_schedule={
-                "run-daily-sales-data-task": {
-                    "task": "app.tasks.fetch_and_process_sales_data",
-                    "schedule": crontab(hour=1, minute=0),
-                },
-                "hello-world": {
-                    "task": "app.tasks.hello_world",
-                    "schedule": crontab(minute="*/1"),
+                "send_email": {
+                    "task": "app.routes.send_email",
+                    "schedule": crontab(hour=10, minute=00),
                 },
             },
+            include=["app.tasks"],
+            timezone=Config.CELERY_TIMEZONE,
         ),
     )
 
