@@ -2,16 +2,19 @@
 
 FROM python:3.11-alpine
 
-WORKDIR /docker-basket
+RUN addgroup -S sdb && adduser -S celeryuser -G sdb
 
-COPY requirements.txt requirements.txt
-RUN pip3 install -r requirements.txt
+WORKDIR /docker-sdb
+
+RUN apk add --no-cache gcc musl-dev linux-headers
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-RUN python3 -m flask db upgrade
+RUN chown -R celeryuser:sdb /docker-sdb
 
+USER celeryuser
 
-EXPOSE 7000
-
-CMD [ "python3", "-m" , "flask", "run", "--host=0.0.0.0"]
+CMD ["flask", "run"]

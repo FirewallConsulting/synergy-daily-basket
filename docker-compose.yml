@@ -1,0 +1,43 @@
+version: "3.8"
+
+services:
+  api:
+    build: .
+    volumes:
+      - .:/app
+    depends_on:
+      - redis
+    env_file: .env
+    ports:
+      - "7000:7000"
+    user: celeryuser
+    command: flask run --host=0.0.0.0 --port=7000
+
+  celery_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - .:/docker-sdb
+    depends_on:
+      - redis
+    env_file: .env
+    user: celeryuser
+    command: celery -A app.make_celery worker --loglevel=info
+
+  celery_beat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - .:/docker-sdb
+    depends_on:
+      - redis
+    env_file: .env
+    user: celeryuser
+    command: celery -A app.make_celery beat --loglevel=info
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"

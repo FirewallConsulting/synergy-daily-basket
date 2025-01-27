@@ -2,14 +2,14 @@ from flask import jsonify, request, abort
 from app.models import EmailRecipient
 from config import Config
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta
 from requests.exceptions import ConnectionError, Timeout, RequestException
-from flask import send_file
 from openpyxl import Workbook
-from io import BytesIO
 import resend
 import os
 from app import db
+from celery import current_app as celery_app
+from celery.exceptions import MaxRetriesExceededError
 
 resend.api_key = Config.RESEND_API_KEY
 
@@ -36,17 +36,20 @@ def register_routes(app):
         if not data:
             sheet.append(["No data available"])
         else:
-            if data[0]:
-                # Extract headers from the keys of the first record
-                headers = list(data[0].keys())
-                sheet.append(headers)
-
-                # Populate rows with data
-                for record in data:
-                    row = [record.get(header, "") for header in headers]
-                    sheet.append(row)
+            if data["error"]:
+                sheet.append([data["details"]])
             else:
-                sheet.append(["No data available"])
+                if data[0]:
+                    # Extract headers from the keys of the first record
+                    headers = list(data[0].keys())
+                    sheet.append(headers)
+
+                    # Populate rows with data
+                    for record in data:
+                        row = [record.get(header, "") for header in headers]
+                        sheet.append(row)
+                else:
+                    sheet.append(["No data available"])
 
         # Save the workbook to a file
         file_path = os.path.join(os.getcwd(), filename)
@@ -338,125 +341,144 @@ def register_routes(app):
 
         return jsonify({"message": "Recipient deleted successfully."})
 
+    @celery_app.task(bind=True, max_retries=2, default_retry_delay=60 * 30)
     @app.route("/send-email", methods=["POST"])
-    def send_email():
-        current_date = datetime.now().strftime("%Y-%m-%d")
-        batch_size = 50
-        entity = "orders"
+    def send_email(self):
+        try:
+            current_date = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+            batch_size = 50
+            entity = "orders"
 
-        order_fields = ",".join(
-            [
-                "DocDate",
-                "CreationDate",
-                "DocNum",
-                "DocEntry",
-                "CardCode",
-                "DocTotal",
-                "U_total_cash",
-                "U_total_debit",
-                "U_receipt_id",
-            ]
-        )
+            order_fields = ",".join(
+                [
+                    "DocDate",
+                    "DocTime",
+                    "CreationDate",
+                    "DocNum",
+                    "DocEntry",
+                    "CardCode",
+                    "DocTotal",
+                    "U_total_cash",
+                    "U_total_debit",
+                    "U_receipt_id",
+                ]
+            )
 
-        # Fetch orders (BIS data)
-        bis_orders = fetch_data_in_batches(
-            entity,
-            batch_size,
-            f"{order_fields},U_num_at_card,U_total_bis",
-            {
-                "startDate": current_date,
-                "endDate": current_date,
-                "paymentMethods": "bis",
-            },
-        )
+            # Fetch orders (BIS data)
+            bis_orders = fetch_data_in_batches(
+                entity,
+                batch_size,
+                f"{order_fields},U_num_at_card,U_total_bis",
+                {
+                    "startDate": current_date,
+                    "endDate": current_date,
+                    "paymentMethods": "bis",
+                },
+            )
 
-        # Fetch orders (Voucher data)
-        voucher_orders = fetch_data_in_batches(
-            entity,
-            batch_size,
-            f"{order_fields},U_voucher_id,U_total_voucher",
-            {
-                "startDate": current_date,
-                "endDate": current_date,
-                "paymentMethods": "voucher",
-            },
-        )
+            # Fetch orders (Voucher data)
+            voucher_orders = fetch_data_in_batches(
+                entity,
+                batch_size,
+                f"{order_fields},U_voucher_id,U_total_voucher",
+                {
+                    "startDate": current_date,
+                    "endDate": current_date,
+                    "paymentMethods": "voucher",
+                },
+            )
 
-        # Generate Excel files for bis data and vouchers data
-        bis_orders_excel_filename = f"BIS_{entity}_{current_date}.xlsx"
-        voucher_orders_excel_filename = f"Voucher_{entity}_{current_date}.xlsx"
+            orders_fetch_failed = (
+                bool(bis_orders["error"]) or bool(voucher_orders["error"])
+                if type(bis_orders) == dict or type(voucher_orders) == dict
+                else False
+            )
 
-        bis_orders_excel_path = generate_excel_file(
-            entity, bis_orders, bis_orders_excel_filename
-        )
-        voucher_orders_excel_path = generate_excel_file(
-            "vouchers", voucher_orders, voucher_orders_excel_filename
-        )
+            if orders_fetch_failed:
+                raise Exception(bis_orders["error"])
 
-        # Read files and prepare attachments
-        with open(bis_orders_excel_path, "rb") as f:
-            bis_orders_excel_content = list(f.read())
-        with open(voucher_orders_excel_path, "rb") as f:
-            voucher_orders_excel_content = list(f.read())
+            # Generate Excel files for bis data and vouchers data
+            bis_orders_excel_filename = f"BIS_{entity}_{current_date}.xlsx"
+            voucher_orders_excel_filename = f"Voucher_{entity}_{current_date}.xlsx"
 
-        orders_attachment = {
-            "content": bis_orders_excel_content,
-            "filename": bis_orders_excel_filename,
-        }
-        vouchers_attachment = {
-            "content": voucher_orders_excel_content,
-            "filename": voucher_orders_excel_filename,
-        }
+            bis_orders_excel_path = generate_excel_file(
+                entity, bis_orders, bis_orders_excel_filename
+            )
+            voucher_orders_excel_path = generate_excel_file(
+                "vouchers", voucher_orders, voucher_orders_excel_filename
+            )
 
-        # Fetch email recipients for the CC field
-        recipients = db.session.execute(
-            db.select(EmailRecipient.email).filter_by(active=True)
-        ).all()
+            # Read files and prepare attachments
+            with open(bis_orders_excel_path, "rb") as f:
+                bis_orders_excel_content = list(f.read())
+            with open(voucher_orders_excel_path, "rb") as f:
+                voucher_orders_excel_content = list(f.read())
 
-        cc_recipients = [row[0] for row in recipients]
+            orders_attachment = {
+                "content": bis_orders_excel_content,
+                "filename": bis_orders_excel_filename,
+            }
+            vouchers_attachment = {
+                "content": voucher_orders_excel_content,
+                "filename": voucher_orders_excel_filename,
+            }
 
-        # Email Body (HTML and Plain Text)
-        total_orders = len(bis_orders)
-        total_vouchers = len(voucher_orders)
+            # Fetch email recipients for the CC field
+            recipients = db.session.execute(
+                db.select(EmailRecipient.email).filter_by(active=True)
+            ).all()
 
-        html_body = f"""
-        <p>Goodnight,</p>
-        <p>Please find the attached reports for today.</p>
-        <p><strong>Summary:</strong></p>
-        <ul>
-            <li>BIS Data Records: {total_orders}</li>
-            <li>Voucher Data Records: {total_vouchers}</li>
-        </ul>
-        <p>Kind regards,<br>SynergyDailyBasket</p>
-        """
+            cc_recipients = [row[0] for row in recipients]
 
-        plain_text_body = (
-            "Goodnight,\n\n"
-            "Please find the attached reports for today.\n\n"
-            "Summary:\n"
-            f"- BIS Data Records: {total_orders}\n"
-            f"- Voucher Data Records: {total_vouchers}\n\n"
-            "Kind regards,\nSynergyDailyBasket"
-        )
+            # Email Body (HTML and Plain Text)
+            total_orders = 0 if orders_fetch_failed else len(bis_orders)
+            total_vouchers = 0 if orders_fetch_failed else len(voucher_orders)
 
-        params: resend.Emails.SendParams = {
-            "from": "SynergyDailyBasket <synergy-daily-basket@thekeyinitiative.sr>",
-            "to": ["kenny@thekeyinitiative.sr"],
-            "cc": cc_recipients,
-            "subject": f"BIS and Voucher Reports - {current_date}",
-            "html": html_body,
-            "text": plain_text_body,
-            "attachments": [orders_attachment, vouchers_attachment],
-        }
+            html_body = f"""
+            <p>Goodnight,</p>
+            <p>Please find the attached reports for today.</p>
+            <p><strong>Summary:</strong></p>
+            <ul>
+                <li>BIS Data Records: {total_orders}</li>
+                <li>Voucher Data Records: {total_vouchers}</li>
+                <li>Fetch Status: {'FAILED' if orders_fetch_failed else 'SUCCESS'}</li>
+            </ul>
+            <p>Kind regards,<br>SynergyDailyBasket</p>
+            """
 
-        # Send the email
-        r = resend.Emails.send(params)
+            plain_text_body = (
+                "Goodnight,\n\n"
+                "Please find the attached reports for today.\n\n"
+                "Summary:\n"
+                f"- BIS Data Records: {total_orders}\n"
+                f"- Voucher Data Records: {total_vouchers}\n"
+                f"- Fetch Status: {'FAILED' if orders_fetch_failed else 'SUCCESS'}\n\n"
+                "Kind regards,\nSynergyDailyBasket"
+            )
 
-        # Delete the files after sending the email
-        os.remove(bis_orders_excel_path)
-        os.remove(voucher_orders_excel_path)
+            params: resend.Emails.SendParams = {
+                "from": f"SynergyDailyBasket <{Config.FROM_EMAIL}>",
+                "to": [Config.TO_EMAIL],
+                "cc": cc_recipients,
+                "subject": f"BIS and Voucher Reports - {current_date}",
+                "html": html_body,
+                "text": plain_text_body,
+                "attachments": [orders_attachment, vouchers_attachment],
+            }
 
-        return jsonify(r)
+            # Send the email
+            r = resend.Emails.send(params)
+
+            # Delete the files after sending the email
+            os.remove(bis_orders_excel_path)
+            os.remove(voucher_orders_excel_path)
+
+            return jsonify(r)
+        except Exception as exc:
+            try:
+                self.retry(exc=exc)
+            except MaxRetriesExceededError:
+                print("Max retries exceeded. Send email task failed permanently.")
 
     @app.route("/", methods=["GET"])
     def index():
