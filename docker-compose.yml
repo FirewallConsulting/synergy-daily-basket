@@ -10,7 +10,6 @@ services:
     env_file: .env
     ports:
       - "7000:7000"
-    user: celeryuser
     command: flask run --host=0.0.0.0 --port=7000
 
   celery_worker:
@@ -22,8 +21,9 @@ services:
     depends_on:
       - redis
     env_file: .env
-    user: celeryuser
     command: celery -A app.make_celery worker --loglevel=info
+    environment:
+      - PYTHONPATH=/docker-sdb
 
   celery_beat:
     build:
@@ -34,8 +34,10 @@ services:
     depends_on:
       - redis
     env_file: .env
-    user: celeryuser
+    user: root
     command: celery -A app.make_celery beat --loglevel=info
+    environment:
+      - PYTHONPATH=/docker-sdb
 
   redis:
     image: redis:alpine

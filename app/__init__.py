@@ -27,7 +27,7 @@ def create_app(config_class=Config):
             beat_schedule={
                 "send_email": {
                     "task": "app.routes.send_email",
-                    "schedule": crontab(hour=10, minute=00),
+                    "schedule": crontab(hour=1, minute=0),
                 },
             },
             include=["app.tasks"],

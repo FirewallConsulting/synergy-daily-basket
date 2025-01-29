@@ -36,7 +36,7 @@ def register_routes(app):
         if not data:
             sheet.append(["No data available"])
         else:
-            if data["error"]:
+            if type(data) == dict:
                 sheet.append([data["details"]])
             else:
                 if data[0]:
@@ -108,9 +108,8 @@ def register_routes(app):
             }
         total_records = count_data.get("data", 0)
 
-        print(f"{total_records} {entity} records for today")
-
-        # Fetch data in batches
+        print(f"{total_records} {entity} records for yesterday")
+	# Fetch data in batches
         all_data = []
         for offset in range(0, total_records, batch_size):
             data_endpoint = f"{base_url}?maxAllowed={batch_size}&offset={offset}"
@@ -436,7 +435,7 @@ def register_routes(app):
 
             html_body = f"""
             <p>Goodmorning,</p>
-            <p>Please find the attached reports for today.</p>
+            <p>Please find the attached reports for yesterday.</p>
             <p><strong>Summary:</strong></p>
             <ul>
                 <li>BIS Data Records: {total_orders}</li>
@@ -448,7 +447,7 @@ def register_routes(app):
 
             plain_text_body = (
                 "Goodmorning,\n\n"
-                "Please find the attached reports for today.\n\n"
+                "Please find the attached reports for yesterday.\n\n"
                 "Summary:\n"
                 f"- BIS Data Records: {total_orders}\n"
                 f"- Voucher Data Records: {total_vouchers}\n"
